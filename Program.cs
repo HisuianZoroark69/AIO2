@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AIO2
 {
@@ -30,29 +31,33 @@ namespace AIO2
                     { "/", "11011011011010" }
                 };
         static int index = 0;
-        static string getSource(string url)
+        static async Task<string> GetSource(string url)
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();            
             string data = "";
+            //Console.WriteLine("Getting " + url);
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                Stream receiveStream = response.GetResponseStream();
-                StreamReader readStream;
+                await Task.Run(() => {
+                    Stream receiveStream = response.GetResponseStream();
+                    StreamReader readStream;
 
-                if (String.IsNullOrWhiteSpace(response.CharacterSet))
-                    readStream = new StreamReader(receiveStream);
-                else
-                    readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
+                    if (string.IsNullOrWhiteSpace(response.CharacterSet))
+                        readStream = new StreamReader(receiveStream);
+                    else
+                        readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
 
-                data = readStream.ReadToEnd();
+                    data = readStream.ReadToEnd();
 
-                response.Close();
-                readStream.Close();
+                    response.Close();
+                    readStream.Close();
+                });         
             }
+            //Console.WriteLine("Done getting " + url);
             return data;
         }
-        static string toNumber(Bitmap img)
+        static string ToNumber(Bitmap img)
         {
             List<string> numbers = new List<string>();
 
@@ -90,10 +95,10 @@ namespace AIO2
             }
             return ans;
         }
-        static void GetData(string pageUrl, int i)
+        static async Task GetData(string pageUrl, int i)
         {
             var pageDoc = new HtmlDocument();
-            pageDoc.LoadHtml(getSource(pageUrl));
+            pageDoc.LoadHtml(await GetSource(pageUrl));
             if (pageDoc.ParsedText == "Cannot Connect To MySQL Server")
             {
                 Console.WriteLine("Please use a vpn or proxy to continue.");
@@ -142,7 +147,7 @@ namespace AIO2
             {
                 pic = (Bitmap)Image.FromStream(ms);
             }
-            string dnMst = toNumber(pic);
+            string dnMst = ToNumber(pic);
 
             string dnSdt = "";
             if (images.ToArray().Length > 1)
@@ -153,31 +158,36 @@ namespace AIO2
                 {
                     pic = (Bitmap)Image.FromStream(ms);
                 }
-                dnSdt = toNumber(pic);
+                dnSdt = ToNumber(pic);
             }
             //Done OCR-ing=========================================
          
-            Console.WriteLine("Writing no." + i);
+            
             table.Rows.Add(i, dnMst, dnSdt, dnDate, dnLaw, dnName, dnAddress);
+            Console.WriteLine("Done writing no." + i);
         }
-        public static void GetPage(string urlAddress)
+        public static async Task GetPage(string urlAddress)
         {
+            List<Task> tasks = new List<Task>();
             var htmlDoc = new HtmlDocument();
-            htmlDoc.LoadHtml(getSource(urlAddress));
+            htmlDoc.LoadHtml(await GetSource(urlAddress));
             if (htmlDoc.ParsedText == "Cannot Connect To MySQL Server")
-            {
+            { 
                 Console.WriteLine("Please use a vpn or proxy to continue.");
-                return;
             }
             var datas = htmlDoc.DocumentNode.SelectNodes("//div[@class='search-results']");
             foreach (var data in datas)
             {
                 string pageUrl = data.ChildNodes["a"].Attributes["href"].Value;
-                GetData(pageUrl, ++index);
+                tasks.Add(GetData(pageUrl, ++index));
             }
+      
+            await Task.WhenAll(tasks);
         }
-        static void run()
+        static async Task Run()
         {
+            List<Task> tasks = new List<Task>();
+
             Console.OutputEncoding = Encoding.UTF8;
             Console.Write("Lay tu trang: ");
             int a = int.Parse(Console.ReadLine());
@@ -197,20 +207,22 @@ namespace AIO2
                 string urlAddress = "https://www.thongtincongty.com/thanh-pho-ha-noi/?page=" + a;
                 //Writing data to complete.xlsx
                 //Mã số thuế;Số điện thoại;Ngày Đăng Ký;Người đại diện;Tên công ty;Địa chỉ
-                GetPage(urlAddress);
-                Console.WriteLine("P" + a);
+                tasks.Add(GetPage(urlAddress));
+                //Console.WriteLine("P" + a);
             }
+            await Task.WhenAll(tasks);
             using (var workbook = new XLWorkbook())
             {
                 workbook.Worksheets.Add(table, "Complete");
                 workbook.SaveAs("Complete.xlsx");
             }
+            
             Console.WriteLine("All done UwU");
             Console.ReadKey();
         }
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            run();
+            await Run();
         }
     }
 }

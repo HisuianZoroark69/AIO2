@@ -2,13 +2,11 @@
 using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AIO2
@@ -31,6 +29,11 @@ namespace AIO2
                     { "/", "11011011011010" }
                 };
         static int index = 0;
+        /// <summary>
+        /// Get the HTML source of the website
+        /// </summary>
+        /// <param name="url">The url of the website</param>
+        /// <returns>The HTML of the website</returns>
         static async Task<string> GetSource(string url)
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
@@ -57,6 +60,11 @@ namespace AIO2
             //Console.WriteLine("Done getting " + url);
             return data;
         }
+        /// <summary>
+        /// Transform the image to number
+        /// </summary>
+        /// <param name="img">The image to OCR</param>
+        /// <returns>The number in the image</returns>
         static string ToNumber(Bitmap img)
         {
             List<string> numbers = new List<string>();
@@ -95,6 +103,11 @@ namespace AIO2
             }
             return ans;
         }
+        /// <summary>
+        /// Get the information data
+        /// </summary>
+        /// <param name="pageUrl">The page url to the list</param>
+        /// <param name="i">The current id</param>
         static async Task GetData(string pageUrl, int i)
         {
             var pageDoc = new HtmlDocument();
@@ -161,10 +174,8 @@ namespace AIO2
                 dnSdt = ToNumber(pic);
             }
             //Done OCR-ing=========================================
-         
-            
             table.Rows.Add(i, dnMst, dnSdt, dnDate, dnLaw, dnName, dnAddress);
-            Console.WriteLine("Done writing no." + i);
+            Console.WriteLine("Done writing no." + i + " on thread " + Task.CurrentId);
         }
         public static async Task GetPage(string urlAddress)
         {
@@ -187,7 +198,6 @@ namespace AIO2
         static async Task Run()
         {
             List<Task> tasks = new List<Task>();
-
             Console.OutputEncoding = Encoding.UTF8;
             Console.Write("Lay tu trang: ");
             int a = int.Parse(Console.ReadLine());
